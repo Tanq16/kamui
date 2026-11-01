@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" class="[color-scheme:dark]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kamui</title>
+
+    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon.png">
+    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#11111b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="kamui">
+
+    <link rel="stylesheet" href="/static/css/inter.css">
+    <link rel="stylesheet" href="/static/css/google-sans.css">
+    <link rel="stylesheet" href="/static/css/jetbrains-mono.css">
+
+    <script src="/static/js/lucide.min.js"></script>
+    <script src="/static/js/tailwind.js"></script>
+    <style>
+      :root {
+        --ctp-rosewater: #f5e0dc; --ctp-flamingo: #f2cdcd; --ctp-pink: #f5c2e7;
+        --ctp-mauve: #cba6f7;     --ctp-red: #f38ba8;      --ctp-maroon: #eba0ac;
+        --ctp-peach: #fab387;     --ctp-yellow: #f9e2af;   --ctp-green: #a6e3a1;
+        --ctp-teal: #94e2d5;      --ctp-sky: #89dceb;      --ctp-sapphire: #74c7ec;
+        --ctp-blue: #89b4fa;      --ctp-lavender: #b4befe; --ctp-text: #cdd6f4;
+        --ctp-subtext1: #bac2de;  --ctp-subtext0: #a6adc8; --ctp-overlay2: #9399b2;
+        --ctp-overlay1: #7f849c;  --ctp-overlay0: #6c7086; --ctp-surface2: #585b70;
+        --ctp-surface1: #45475a;  --ctp-surface0: #313244; --ctp-base: #1e1e2e;
+        --ctp-mantle: #181825;    --ctp-crust: #11111b;
+        --chart-allowed: #6b94d8; --chart-blocked: #d46f8c;
+      }
+      ::selection { background: color-mix(in oklab, var(--ctp-mauve) 35%, transparent); }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: var(--ctp-surface0); border-radius: 999px; }
+    </style>
+    <style type="text/tailwindcss">
+      @theme {
+        --color-rosewater: var(--ctp-rosewater); --color-flamingo: var(--ctp-flamingo);
+        --color-pink: var(--ctp-pink);           --color-mauve: var(--ctp-mauve);
+        --color-red: var(--ctp-red);             --color-maroon: var(--ctp-maroon);
+        --color-peach: var(--ctp-peach);         --color-yellow: var(--ctp-yellow);
+        --color-green: var(--ctp-green);         --color-teal: var(--ctp-teal);
+        --color-sky: var(--ctp-sky);             --color-sapphire: var(--ctp-sapphire);
+        --color-blue: var(--ctp-blue);           --color-lavender: var(--ctp-lavender);
+        --color-text: var(--ctp-text);           --color-subtext1: var(--ctp-subtext1);
+        --color-subtext0: var(--ctp-subtext0);   --color-overlay2: var(--ctp-overlay2);
+        --color-overlay1: var(--ctp-overlay1);   --color-overlay0: var(--ctp-overlay0);
+        --color-surface2: var(--ctp-surface2);   --color-surface1: var(--ctp-surface1);
+        --color-surface0: var(--ctp-surface0);   --color-base: var(--ctp-base);
+        --color-mantle: var(--ctp-mantle);       --color-crust: var(--ctp-crust);
+        --color-allowed: var(--chart-allowed);   --color-blocked: var(--chart-blocked);
+
+        --font-sans: 'Inter', sans-serif;
+        --font-display: 'Google Sans', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+      }
+    </style>
+</head>
+<body class="bg-crust text-subtext0 min-h-screen font-sans antialiased">
+    <header class="px-4 sm:px-6 lg:px-10 pt-6 flex flex-wrap items-center gap-3">
+        <a href="#/dashboard" aria-label="kamui" class="flex items-center gap-2.5 text-text font-display text-xl font-medium cursor-pointer">
+            <img src="/static/icons/icon.svg" alt="" class="size-11 sm:size-13">
+            <span class="max-sm:hidden">Kamui</span>
+        </a>
+        <span id="state-tag"></span>
+        <nav id="nav" class="ml-auto flex gap-1 p-1 bg-mantle rounded-full"></nav>
+    </header>
+
+    <main id="view" class="px-4 sm:px-6 lg:px-10 py-6 sm:py-8"></main>
+
+    <dialog id="modal" class="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl bg-mantle text-subtext0 p-6 backdrop:bg-crust/70"></dialog>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 max-w-[calc(100%-2rem)] px-4 py-2 rounded-full bg-surface0 text-text text-sm shadow-lg transition-all opacity-0 translate-y-4 pointer-events-none"></div>
+
+    <script src="/static/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+</html>
