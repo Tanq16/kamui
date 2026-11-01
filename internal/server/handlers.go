@@ -482,6 +482,7 @@ func (s *Server) handleCacheFlush(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	data, err := s.d.Config.Marshal()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to export config")
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

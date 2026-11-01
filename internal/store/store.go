@@ -3,11 +3,11 @@ package store
 import (
 	"context"
 	"database/sql"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 )
 
@@ -87,9 +87,16 @@ type Store struct {
 	countMu sync.Mutex
 	pending *pending
 	flushMu sync.RWMutex
+
+	onErr func(msg string, err error)
 }
 
-func Open(path string, logSize, retentionDays int) (*Store, error) {
+func Open(path string, logSize, retentionDays int, onErr func(msg string, err error)) (*Store, error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
 	dsn := path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -105,6 +112,7 @@ func Open(path string, logSize, retentionDays int) (*Store, error) {
 		quit:    make(chan struct{}),
 		done:    make(chan struct{}),
 		pending: newPending(),
+		onErr:   onErr,
 	}
 	s.SetLimits(logSize, retentionDays)
 	go s.run()
@@ -177,7 +185,7 @@ func (s *Store) run() {
 			return
 		}
 		if err := s.insert(batch); err != nil {
-			log.Error().Err(err).Int("rows", len(batch)).Msg("failed to write query log")
+			s.onErr("failed to write query log", err)
 		}
 		batch = batch[:0]
 	}
@@ -238,7 +246,7 @@ func (s *Store) flushStats() {
 		return
 	}
 	if err := s.writeStats(p); err != nil {
-		log.Error().Err(err).Msg("failed to write statistics")
+		s.onErr("failed to write statistics", err)
 		s.countMu.Lock()
 		merge(s.pending, p)
 		s.countMu.Unlock()
@@ -307,7 +315,7 @@ func (s *Store) pruneStats() {
 	defer cancel()
 	for _, q := range []string{`DELETE FROM daily WHERE date < ?`, `DELETE FROM daily_domains WHERE date < ?`} {
 		if _, err := s.db.ExecContext(ctx, q, cutoff); err != nil {
-			log.Error().Err(err).Msg("failed to prune statistics")
+			s.onErr("failed to prune statistics", err)
 		}
 	}
 }
