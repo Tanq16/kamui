@@ -1,6 +1,6 @@
 <div align="center">
   <img src=".github/assets/logo.svg" alt="kamui Logo" width="200">
-  <h1>kamui</h1>
+  <h1>Kamui</h1>
 
   <a href="https://github.com/Tanq16/kamui/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/Tanq16/kamui/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/kamui/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tanq16/kamui"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/kamui"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/kamui"></a><br><br>
   <a href="#features">Features</a> &bull; <a href="#install">Install</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#notes">Notes</a>
