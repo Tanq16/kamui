@@ -3,7 +3,7 @@
   <h1>Kamui</h1>
 
   <a href="https://github.com/Tanq16/kamui/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/Tanq16/kamui/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/kamui/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/Tanq16/kamui"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/kamui"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/kamui"></a><br><br>
-  <a href="#features">Features</a> &bull; <a href="#install">Install</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#notes">Notes</a>
+  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#install">Install</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#notes">Notes</a>
 </div>
 
 ---
@@ -23,6 +23,31 @@ It is not a public resolver. It serves no DoH, DoT, or DHCP, and the UI has no l
 - A TTL-honoring response cache, a SQLite query log, and daily statistics.
 - A global switch that turns blocking off or pauses it for 5 minutes, 1 hour, or a custom time.
 - Web UI with a dashboard, query log, DNS settings, and app settings, including config export and import.
+
+## Screenshots
+
+<details>
+<summary>Click to expand</summary>
+
+### Dashboard
+
+| Desktop | Mobile |
+| :---: | :---: |
+| <img src=".github/assets/dashboard-desktop.png" alt="Dashboard desktop" width="100%" /> | <img src=".github/assets/dashboard-mobile.png" alt="Dashboard mobile" width="100%" /> |
+
+### Query log
+
+| Desktop | Mobile |
+| :---: | :---: |
+| <img src=".github/assets/querylog-desktop.png" alt="Query log desktop" width="100%" /> | <img src=".github/assets/querylog-mobile.png" alt="Query log mobile" width="100%" /> |
+
+### DNS settings
+
+| Desktop | Mobile |
+| :---: | :---: |
+| <img src=".github/assets/dns-desktop.png" alt="DNS settings desktop" width="100%" /> | <img src=".github/assets/dns-mobile.png" alt="DNS settings mobile" width="100%" /> |
+
+</details>
 
 ## Install
 
@@ -56,7 +81,7 @@ services:
 
 ### Release binary
 
-Download `kamui-linux-amd64`, `kamui-linux-arm64`, or `kamui-darwin-arm64` from the [releases](https://github.com/Tanq16/kamui/releases) page.
+Download `kamui-linux-amd64`, `kamui-linux-arm64`, `kamui-darwin-amd64`, or `kamui-darwin-arm64` from the [releases](https://github.com/Tanq16/kamui/releases) page.
 
 ```bash
 sudo install -m 0755 kamui-linux-amd64 /usr/local/bin/kamui
