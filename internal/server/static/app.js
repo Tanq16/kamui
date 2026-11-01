@@ -239,7 +239,7 @@ function blockingCard() {
   ];
   const pauseBtn = (attrs, label) => `<button ${attrs} class="h-8 px-3 rounded-full text-sm text-text hover:bg-surface0 cursor-pointer transition">${label}</button>`;
   const controls = {
-    on: `<div class="flex items-center gap-1 p-1 rounded-full bg-crust">
+    on: `<div class="flex items-center gap-1 p-1 rounded-full bg-base">
         <span class="${cls.hint} pl-3 pr-1">Pause</span>
         ${pauseBtn('data-action="pause" data-sec="300"', '5 min')}
         ${pauseBtn('data-action="pause" data-sec="3600"', '1 h')}
@@ -289,7 +289,7 @@ function chartCard() {
   const chart = `<div id="chart" class="flex-1 grid grid-cols-[auto_1fr] grid-rows-[minmax(14rem,1fr)_auto] gap-x-3 mt-6">
       <div class="flex flex-col justify-between -my-1.5 text-right text-xs text-overlay0 tabular-nums">${[max, max / 2, 0].map((v) => `<span>${compact(v)}</span>`).join('')}</div>
       <div class="relative">
-        ${[0, 50, 100].map((t) => `<span class="absolute inset-x-0 h-px bg-surface0" style="top:${t}%"></span>`).join('')}
+        ${['top-0', 'top-1/2', 'top-full'].map((t) => `<span class="absolute inset-x-0 h-px bg-surface0 ${t}"></span>`).join('')}
         ${empty ? `<p class="absolute inset-0 grid place-items-center text-sm text-overlay1">No queries yet</p>` : ''}
         <div class="relative flex h-full items-end">${data.map((d, i) => `
           <div data-day="${i}" tabindex="0" class="group flex-1 flex h-full items-end justify-center px-[2px] outline-none">
@@ -299,7 +299,7 @@ function chartCard() {
             </div>
           </div>`).join('')}
         </div>
-        <div id="chart-tip" class="hidden absolute z-10 -translate-x-1/2 pointer-events-none rounded-2xl bg-surface0 px-3 py-2 text-xs shadow-lg whitespace-nowrap"></div>
+        <div id="chart-tip" class="hidden absolute top-2 z-10 -translate-x-1/2 pointer-events-none rounded-2xl bg-surface0 px-3 py-2 text-xs shadow-lg whitespace-nowrap"></div>
       </div>
       <span></span>
       <div class="flex mt-2 text-xs text-overlay0">${data.map((d, i) => `<span class="flex-1 text-center">${n <= 7 || i % 5 === (data.length - 1) % 5 ? label(d) : ''}</span>`).join('')}</div>
@@ -311,7 +311,7 @@ function chartCard() {
   return `<section class="${cls.card} lg:col-span-2 flex flex-col">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div><h2 class="${cls.h2}">Queries per day</h2><p class="${cls.hint} mt-0.5">Last ${n} days</p></div>
-      <div class="flex items-center gap-4">${legend}${pillBar([['chart', 'Chart', 'chart-column'], ['table', 'Table', 'table-2']], S.chartView, 'chart-view', 'bg-crust')}</div>
+      <div class="flex items-center gap-4">${legend}${pillBar([['chart', 'Chart', 'chart-column'], ['table', 'Table', 'table-2']], S.chartView, 'chart-view', 'bg-base')}</div>
     </div>
     ${S.chartView === 'chart' ? chart : table}
   </section>`;
@@ -330,7 +330,6 @@ function showTip(col) {
   const c = col.getBoundingClientRect();
   const half = tip.offsetWidth / 2;
   tip.style.left = `${Math.min(Math.max(c.left - box.left + c.width / 2, half), box.width - half)}px`;
-  tip.style.top = '8px';
 }
 
 function hideTip() {
@@ -415,10 +414,10 @@ function viewQueryLog() {
     <div class="flex flex-wrap items-center gap-3">
       <label class="relative flex-1 min-w-56">
         ${icon('search', 'size-4 absolute left-4 top-1/2 -translate-y-1/2 text-overlay0')}
-        <input id="log-search" value="${esc(S.logSearch)}" placeholder="Search domain or client" class="${cls.input} w-full pl-10 bg-mantle">
+        <input id="log-search" value="${esc(S.logSearch)}" placeholder="Search domain or client" class="${cls.input} w-full pl-10">
       </label>
       ${pillBar(filters, S.logFilter, 'log-filter')}
-      <button data-action="log-live" class="${cls.btn} bg-mantle hover:bg-surface0">
+      <button data-action="log-live" class="${cls.btn}">
         <span class="size-2 rounded-full ${S.live ? 'bg-green animate-pulse' : 'bg-overlay0'}"></span>${S.live ? 'Live' : 'Paused'}
       </button>
     </div>
@@ -662,12 +661,12 @@ function viewApp(sub) {
   const custom = S.refreshCustom || !REFRESH_PRESETS.includes(s?.refresh_hours);
   const body = {
     general: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-      ${settingCard('Block list refresh', 'How often every list is downloaded again.', `<div class="flex flex-wrap items-center gap-3">${pillBar(refreshOpts, custom ? 'custom' : s.refresh_hours, 'set-refresh', 'bg-crust')}${custom ? numInput('refresh_hours', s.refresh_hours, 'hours', 'min="1"') : ''}</div>`)}
+      ${settingCard('Block list refresh', 'How often every list is downloaded again.', `<div class="flex flex-wrap items-center gap-3">${pillBar(refreshOpts, custom ? 'custom' : s.refresh_hours, 'set-refresh', 'bg-base')}${custom ? numInput('refresh_hours', s.refresh_hours, 'hours', 'min="1"') : ''}</div>`)}
       ${settingCard('Query log size', 'The oldest queries are dropped past this many rows.', numInput('log_size', s.log_size, 'rows', 'min="1000" step="1000"'))}
     </div>`,
     stats: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       ${settingCard('Retention', 'Statistics older than this are deleted.', numInput('retention_days', s.retention_days, 'days', 'min="1"'))}
-      ${settingCard('Dashboard window', 'Range for the daily chart and the top domains.', pillBar([[7, '7 days'], [30, '30 days']], s.stats_window_days, 'set-window', 'bg-crust'))}
+      ${settingCard('Dashboard window', 'Range for the daily chart and the top domains.', pillBar([[7, '7 days'], [30, '30 days']], s.stats_window_days, 'set-window', 'bg-base'))}
     </div>`,
     clients: () => `<section class="${cls.card}">
       <h2 class="${cls.h2}">Client names</h2>
