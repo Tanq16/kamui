@@ -198,7 +198,7 @@ func (s *Settings) Validate() error {
 	if err := inRange("refresh_hours", s.RefreshHours, 0, 8760); err != nil {
 		return err
 	}
-	if err := inRange("log_size", s.LogSize, 1000, 10000000); err != nil {
+	if err := inRange("log_size", s.LogSize, 1000, 1000000); err != nil {
 		return err
 	}
 	if err := inRange("retention_days", s.RetentionDays, 1, 3650); err != nil {

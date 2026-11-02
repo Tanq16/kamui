@@ -20,7 +20,7 @@ It is not a public resolver. It serves no DoH, DoT, or DHCP, and the UI has no l
 - Upstreams over DoH, DoT, or plain DNS, tried in order with hedged fallback and a bootstrap resolver for their hostnames.
 - Conditional forwarding of local domains and private reverse lookups to the router.
 - CNAME-target blocking, DNS rebinding protection, and the Firefox DoH and iCloud Private Relay canaries.
-- A TTL-honoring response cache, a SQLite query log, and daily statistics.
+- A TTL-honoring response cache, an in-memory query log with CSV and JSON export, and daily statistics.
 - A global switch that turns blocking off or pauses it for 5 minutes, 1 hour, or a custom time.
 - Web UI with a dashboard, query log, DNS settings, and app settings, including config export and import.
 
@@ -148,7 +148,7 @@ Point the router's DHCP DNS server at the kamui host, then manage everything els
 |---|---|---|---|
 | `--dns-addr` | `KAMUI_DNS_ADDR` | `0.0.0.0:53` | DNS listen address, UDP and TCP |
 | `--http-addr` | `KAMUI_HTTP_ADDR` | `0.0.0.0:8053` | Web UI and API listen address |
-| `--data-dir` | `KAMUI_DATA_DIR` | `./data` | Holds `config.json`, `kamui.db`, and `lists/` |
+| `--data-dir` | `KAMUI_DATA_DIR` | `./data` | Holds `config.json`, `kamui.snapshot`, and `lists/` |
 | `--debug` | | `false` | Debug logging |
 
 ### Testing on another port
@@ -171,4 +171,5 @@ With conditional forwarding on, kamui sends local names such as `printer.lan` an
 - **iCloud Private Relay:** the canary turns Private Relay off for LAN devices, which would otherwise resolve through Apple and skip both blocking and rewrites. It can be turned off in DNS settings.
 - **Rebinding protection:** upstream answers pointing at private, loopback, or link-local addresses are dropped. Domains such as `plex.direct` are exempt by default.
 - **Rewrites:** a matched name answers HTTPS and SVCB queries with an empty response, and forwards other types such as TXT and SOA so ACME DNS-01 renewals keep working.
-- **Data directory:** `config.json` (mode `0600`) holds settings, lists, rules, and rewrites, and is what the UI exports and imports. `kamui.db` holds the query log and statistics, and `lists/` holds the last good download of each list.
+- **Query log persistence:** the query log and statistics live in memory. kamui saves them to `kamui.snapshot` every 10 minutes and on shutdown, so a crash or power loss drops at most the last 10 minutes.
+- **Data directory:** `config.json` (mode `0600`) holds settings, lists, rules, and rewrites, and is what the UI exports and imports. `kamui.snapshot` holds a copy of the query log and statistics, and `lists/` holds the last good download of each list.
