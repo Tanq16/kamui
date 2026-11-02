@@ -97,7 +97,6 @@ func Run(ctx context.Context, c Config) error {
 		st.SetLimits(cur.Settings.LogSize, cur.Settings.RetentionDays)
 		web.SyncLists(cur.Lists)
 		if old.Blocking != cur.Blocking {
-			respCache.Flush()
 			log.Info().Str("mode", cur.Blocking.Mode).Msg("blocking state changed")
 		}
 	})

@@ -14,6 +14,7 @@ type key struct {
 	qtype uint16
 	class uint16
 	do    bool
+	cd    bool
 }
 
 type entry struct {
@@ -48,15 +49,15 @@ func (c *Cache) SetLimits(size, minTTL, maxTTL int) {
 	c.evict()
 }
 
-func keyOf(q dns.Question, do bool) key {
-	return key{name: strings.ToLower(q.Name), qtype: q.Qtype, class: q.Qclass, do: do}
+func keyOf(q dns.Question, do, cd bool) key {
+	return key{name: strings.ToLower(q.Name), qtype: q.Qtype, class: q.Qclass, do: do, cd: cd}
 }
 
-func (c *Cache) Get(q dns.Question, do bool) *dns.Msg {
+func (c *Cache) Get(q dns.Question, do, cd bool) *dns.Msg {
 	now := time.Now()
 	c.mu.Lock()
 	c.countLookup(now)
-	el, ok := c.items[keyOf(q, do)]
+	el, ok := c.items[keyOf(q, do, cd)]
 	if !ok {
 		c.mu.Unlock()
 		return nil
@@ -95,7 +96,7 @@ func (c *Cache) countLookup(now time.Time) {
 	c.lookups++
 }
 
-func (c *Cache) Set(q dns.Question, do bool, m *dns.Msg) {
+func (c *Cache) Set(q dns.Question, do, cd bool, m *dns.Msg) {
 	if m.Truncated || (m.Rcode != dns.RcodeSuccess && m.Rcode != dns.RcodeNameError) {
 		return
 	}
@@ -131,7 +132,7 @@ func (c *Cache) Set(q dns.Question, do bool, m *dns.Msg) {
 	}
 
 	now := time.Now()
-	k := keyOf(q, do)
+	k := keyOf(q, do, cd)
 	e := &entry{key: k, packed: packed, stored: now, expires: now.Add(time.Duration(ttl) * time.Second)}
 	c.mu.Lock()
 	defer c.mu.Unlock()

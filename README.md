@@ -167,9 +167,9 @@ With conditional forwarding on, kamui sends local names such as `printer.lan` an
 ## Notes
 
 - **Blocking switch:** off and paused disable custom blocks, lists, and the CNAME check. Canaries, rewrites, local forwarding, special-use names, and rebinding protection stay active.
-- **Cache flushes:** every change of blocking state flushes the response cache. List toggles and rule edits apply to the next query without a flush.
 - **iCloud Private Relay:** the canary turns Private Relay off for LAN devices, which would otherwise resolve through Apple and skip both blocking and rewrites. It can be turned off in DNS settings.
-- **Rebinding protection:** upstream answers pointing at private, loopback, or link-local addresses are dropped. Domains such as `plex.direct` are exempt by default.
+- **Rebinding protection:** upstream answers pointing at private, CGNAT (`100.64.0.0/10`), loopback, or link-local addresses are dropped. Domains such as `plex.direct` are exempt by default.
+- **Web UI hosts:** the UI and API answer only requests addressed to an IP, `localhost`, a rewrite name, or a name under a local domain. Any other name, such as a Tailscale MagicDNS `*.ts.net` name, needs a rewrite to reach the UI.
 - **Rewrites:** a matched name answers HTTPS and SVCB queries with an empty response, and forwards other types such as TXT and SOA so ACME DNS-01 renewals keep working.
 - **Query log persistence:** the query log and statistics live in memory. kamui saves them to `kamui.snapshot` every 10 minutes and on shutdown, so a crash or power loss drops at most the last 10 minutes.
 - **Data directory:** `config.json` (mode `0600`) holds settings, lists, rules, and rewrites, and is what the UI exports and imports. `kamui.snapshot` holds a copy of the query log and statistics, and `lists/` holds the last good download of each list.
