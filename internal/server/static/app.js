@@ -85,9 +85,14 @@ const NEEDS = {
 const needs = (r) => NEEDS[r.sub ?? r.page];
 
 let logSeq = 0;
-function logQuery(before) {
-  const p = new URLSearchParams({ result: S.logFilter, limit: LOG_LIMIT });
+function logParams(extra) {
+  const p = new URLSearchParams({ result: S.logFilter, ...extra });
   if (S.logSearch.trim()) p.set('search', S.logSearch.trim());
+  return p;
+}
+
+function logQuery(before) {
+  const p = logParams({ limit: LOG_LIMIT });
   if (before) p.set('before', before);
   return api('GET', `querylog?${p}`);
 }
@@ -410,7 +415,7 @@ const logFoot = () => (S.logEnd ? '' : `<div class="flex justify-center pt-3"><b
 function viewQueryLog() {
   const filters = [['all', 'All', 'list'], ['blocked', 'Blocked', 'ban'], ['allowed', 'Allowed', 'circle-check'], ['rewritten', 'Rewritten', 'arrow-left-right']];
   return `
-    ${pageHead('Query log', `Keeping the last ${fmt(S.settings.log_size)} queries`)}
+    ${pageHead('Query log', `Keeping the last ${fmt(S.settings.log_size)} queries`, `<button data-action="log-export" class="${cls.btn}">${icon('download')}Export</button>`)}
     <div class="flex flex-wrap items-center gap-3">
       <label class="relative flex-1 min-w-56">
         ${icon('search', 'size-4 absolute left-4 top-1/2 -translate-y-1/2 text-overlay0')}
@@ -662,7 +667,7 @@ function viewApp(sub) {
   const body = {
     general: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       ${settingCard('Block list refresh', 'How often every list is downloaded again.', `<div class="flex flex-wrap items-center gap-3">${pillBar(refreshOpts, custom ? 'custom' : s.refresh_hours, 'set-refresh', 'bg-base')}${custom ? numInput('refresh_hours', s.refresh_hours, 'hours', 'min="1"') : ''}</div>`)}
-      ${settingCard('Query log size', 'The oldest queries are dropped past this many rows.', numInput('log_size', s.log_size, 'rows', 'min="1000" step="1000"'))}
+      ${settingCard('Query log size', 'The oldest queries are dropped past this many rows.', numInput('log_size', s.log_size, 'rows', 'min="1000" max="1000000" step="1000"'))}
     </div>`,
     stats: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       ${settingCard('Retention', 'Statistics older than this are deleted.', numInput('retention_days', s.retention_days, 'days', 'min="1"'))}
@@ -767,6 +772,13 @@ function modal(html, onOk) {
 
 const modalButtons = (ok) => `<div class="flex justify-end gap-2 pt-2"><button value="cancel" formnovalidate class="${cls.btn}">Cancel</button><button value="ok" class="${cls.primary}">${ok}</button></div>`;
 
+function download(href, name) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = name;
+  a.click();
+}
+
 async function addRule(kind, domain, subdomains) {
   const rule = await api('POST', `rules/${kind}`, { domain, subdomains });
   if (S[kind]) S[kind] = [rule, ...S[kind].filter((r) => r.id !== rule.id)];
@@ -827,6 +839,16 @@ const actions = {
     if (S.live) return pollLog();
   },
   'log-more': () => olderLog(),
+  'log-export': () => {
+    const format = (value, label, checked = '') => `<label class="flex items-center h-8 px-4 rounded-full text-sm text-overlay1 hover:text-text has-checked:bg-surface0 has-checked:text-text cursor-pointer transition"><input type="radio" name="format" value="${value}" ${checked} class="sr-only">${label}</label>`;
+    modal(`
+      <h2 class="${cls.h2}">Export query log</h2>
+      <p class="text-sm">Downloads every entry matching the current filter and search.</p>
+      <div class="inline-flex gap-1 p-1 bg-base rounded-full">${format('csv', 'CSV', 'checked')}${format('json', 'JSON')}</div>
+      ${modalButtons('Download')}`, (f) => {
+      download(`/api/querylog/export?${logParams({ format: f.get('format') })}`, `querylog.${f.get('format')}`);
+    });
+  },
   'log-rule': (el) => {
     const r = S.log.find((x) => x.id === Number(el.dataset.id));
     const blocked = r.result === 'blocked';
@@ -889,12 +911,7 @@ const actions = {
   },
   'set-window': (el) => saveSettings((s) => { s.stats_window_days = Number(el.dataset.to); }),
   'client-remove': (el) => saveSettings((s) => { s.clients.splice(Number(el.dataset.i), 1); }),
-  export: () => {
-    const a = document.createElement('a');
-    a.href = '/api/config/export';
-    a.download = 'config.json';
-    a.click();
-  },
+  export: () => download('/api/config/export', 'config.json'),
 };
 
 const submits = {

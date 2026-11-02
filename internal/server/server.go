@@ -75,6 +75,7 @@ func (s *Server) Setup() error {
 	s.mux.Handle("PUT /api/blocking", mutate(s.handleBlocking))
 	s.mux.HandleFunc("GET /api/stats", s.handleStats)
 	s.mux.HandleFunc("GET /api/querylog", s.handleQueryLog)
+	s.mux.HandleFunc("GET /api/querylog/export", s.handleQueryLogExport)
 
 	s.mux.HandleFunc("GET /api/lists", s.handleLists)
 	s.mux.Handle("POST /api/lists", mutate(s.handleListAdd))

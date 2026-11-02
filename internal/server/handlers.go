@@ -1,10 +1,12 @@
 package server
 
 import (
+	"encoding/csv"
 	"errors"
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -114,24 +116,43 @@ func (s *Server) handleBlocking(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	set := s.d.Config.Get().Settings
-	st, err := s.d.Store.Stats(r.Context(), set.StatsWindowDays, set.RetentionDays)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to read statistics")
-		writeError(w, http.StatusInternalServerError, "failed to read statistics")
-		return
-	}
-	writeJSON(w, http.StatusOK, st)
+	writeJSON(w, http.StatusOK, s.d.Store.Stats(set.StatsWindowDays, set.RetentionDays))
 }
 
-func (s *Server) handleQueryLog(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	f := store.Filter{Search: strings.TrimSpace(q.Get("search")), Result: q.Get("result"), Limit: 100}
+func (s *Server) logFilter(w http.ResponseWriter, q url.Values) (store.Filter, map[string]string, bool) {
+	f := store.Filter{Search: strings.TrimSpace(q.Get("search")), Result: q.Get("result")}
 	switch f.Result {
 	case "", "all", "allowed", "blocked", "rewritten", "local":
 	default:
 		writeError(w, http.StatusBadRequest, "result must be all, allowed, blocked, rewritten, or local")
+		return f, nil, false
+	}
+	names := map[string]string{}
+	needle := strings.ToLower(f.Search)
+	for _, c := range s.d.Config.Get().Settings.Clients {
+		names[c.IP] = c.Name
+		if needle != "" && strings.Contains(strings.ToLower(c.Name), needle) {
+			f.ClientIPs = append(f.ClientIPs, c.IP)
+		}
+	}
+	return f, names, true
+}
+
+func (s *Server) queryLog(f store.Filter, names map[string]string) []store.Entry {
+	entries := s.d.Store.Query(f)
+	for i := range entries {
+		entries[i].ClientName = names[entries[i].Client]
+	}
+	return entries
+}
+
+func (s *Server) handleQueryLog(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	f, names, ok := s.logFilter(w, q)
+	if !ok {
 		return
 	}
+	f.Limit = 100
 	if v := q.Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
@@ -148,27 +169,52 @@ func (s *Server) handleQueryLog(w http.ResponseWriter, r *http.Request) {
 		}
 		f.Before = n
 	}
-	names := map[string]string{}
-	needle := strings.ToLower(f.Search)
-	for _, c := range s.d.Config.Get().Settings.Clients {
-		names[c.IP] = c.Name
-		if needle != "" && strings.Contains(strings.ToLower(c.Name), needle) {
-			f.ClientIPs = append(f.ClientIPs, c.IP)
-		}
-	}
-	entries, err := s.d.Store.Query(r.Context(), f)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to read query log")
-		writeError(w, http.StatusInternalServerError, "failed to read query log")
-		return
-	}
-	for i := range entries {
-		entries[i].ClientName = names[entries[i].Client]
-	}
 	writeJSON(w, http.StatusOK, struct {
 		Entries []store.Entry `json:"entries"`
-		Dropped int64         `json:"dropped"`
-	}{entries, s.d.Store.Dropped()})
+	}{s.queryLog(f, names)})
+}
+
+func (s *Server) handleQueryLogExport(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	format := q.Get("format")
+	if format != "csv" && format != "json" {
+		writeError(w, http.StatusBadRequest, "format must be csv or json")
+		return
+	}
+	f, names, ok := s.logFilter(w, q)
+	if !ok {
+		return
+	}
+	f.Limit = s.d.Config.Get().Settings.LogSize
+	entries := s.queryLog(f, names)
+	w.Header().Set("Content-Disposition", `attachment; filename="querylog.`+format+`"`)
+	if format == "json" {
+		writeJSON(w, http.StatusOK, entries)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"id", "time", "client", "client_name", "domain", "type", "result", "reason", "upstream", "cached", "rcode", "duration_ms"})
+	for _, e := range entries {
+		cw.Write([]string{
+			strconv.FormatInt(e.ID, 10),
+			time.UnixMilli(e.Time).Format(time.RFC3339Nano),
+			e.Client,
+			e.ClientName,
+			e.Domain,
+			e.Type,
+			e.Result,
+			e.Reason,
+			e.Upstream,
+			strconv.FormatBool(e.Cached),
+			e.Rcode,
+			strconv.FormatFloat(e.DurationMs, 'f', -1, 64),
+		})
+	}
+	cw.Flush()
+	if err := cw.Error(); err != nil {
+		log.Error().Err(err).Msg("failed to export query log")
+	}
 }
 
 type listJSON struct {

@@ -2,7 +2,6 @@ package store
 
 import (
 	"cmp"
-	"context"
 	"slices"
 	"strings"
 	"time"
@@ -16,54 +15,29 @@ type Filter struct {
 	ClientIPs []string
 }
 
-func (s *Store) Query(ctx context.Context, f Filter) ([]Entry, error) {
-	var where []string
-	var args []any
-	if f.Before > 0 {
-		where = append(where, "id < ?")
-		args = append(args, f.Before)
-	}
-	if f.Result != "" && f.Result != "all" {
-		where = append(where, "result = ?")
-		args = append(args, f.Result)
-	}
-	if f.Search != "" {
-		like := "%" + escapeLike(strings.ToLower(f.Search)) + "%"
-		cond := []string{`domain LIKE ? ESCAPE '\'`, `client LIKE ? ESCAPE '\'`}
-		args = append(args, like, like)
-		if len(f.ClientIPs) > 0 {
-			cond = append(cond, "client IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.ClientIPs)), ",")+")")
-			for _, ip := range f.ClientIPs {
-				args = append(args, ip)
-			}
-		}
-		where = append(where, "("+strings.Join(cond, " OR ")+")")
-	}
-	q := `SELECT id, time, client, domain, qtype, result, reason, upstream, cached, rcode, duration FROM querylog`
-	if len(where) > 0 {
-		q += " WHERE " + strings.Join(where, " AND ")
-	}
-	q += " ORDER BY id DESC LIMIT ?"
-	args = append(args, f.Limit)
-
-	rows, err := s.db.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func (s *Store) Query(f Filter) []Entry {
+	needle := strings.ToLower(f.Search)
 	out := []Entry{}
-	for rows.Next() {
-		var e Entry
-		if err := rows.Scan(&e.ID, &e.Time, &e.Client, &e.Domain, &e.Type, &e.Result, &e.Reason, &e.Upstream, &e.Cached, &e.Rcode, &e.DurationMs); err != nil {
-			return nil, err
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	n := len(s.buf)
+	for i := range n {
+		if len(out) >= f.Limit {
+			break
+		}
+		e := s.buf[(s.head-1-i+n)%n]
+		if f.Before > 0 && e.ID >= f.Before {
+			continue
+		}
+		if f.Result != "" && f.Result != "all" && e.Result != f.Result {
+			continue
+		}
+		if needle != "" && !strings.Contains(e.Domain, needle) && !strings.Contains(e.Client, needle) && !slices.Contains(f.ClientIPs, e.Client) {
+			continue
 		}
 		out = append(out, e)
 	}
-	return out, rows.Err()
-}
-
-func escapeLike(s string) string {
-	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+	return out
 }
 
 type Totals struct {
@@ -94,106 +68,45 @@ type Stats struct {
 
 const topN = 7
 
-func (s *Store) Stats(ctx context.Context, windowDays, retentionDays int) (*Stats, error) {
-	s.flushMu.RLock()
-	defer s.flushMu.RUnlock()
-
+func (s *Store) Stats(windowDays, retentionDays int) *Stats {
 	now := time.Now()
 	today := now.Format(time.DateOnly)
 	retentionStart := windowStart(now, retentionDays)
 	windowFrom := windowStart(now, windowDays)
-
-	daily := map[string]*counts{}
-	rows, err := s.db.QueryContext(ctx, `SELECT date, total, blocked FROM daily WHERE date >= ?`, retentionStart)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var date string
-		c := &counts{}
-		if err := rows.Scan(&date, &c.total, &c.blocked); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		daily[date] = c
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	queried, err := s.topDomains(ctx, "queries", windowFrom)
-	if err != nil {
-		return nil, err
-	}
-	blocked, err := s.topDomains(ctx, "blocked", windowFrom)
-	if err != nil {
-		return nil, err
-	}
-
-	s.countMu.Lock()
-	for date, c := range s.pending.days {
-		d := daily[date]
-		if d == nil {
-			d = &counts{}
-			daily[date] = d
-		}
-		d.total += c.total
-		d.blocked += c.blocked
-	}
-	for date, doms := range s.pending.domains {
-		if date < windowFrom {
-			continue
-		}
-		for dom, c := range doms {
-			queried[dom] += c.total
-			if c.blocked > 0 {
-				blocked[dom] += c.blocked
-			}
-		}
-	}
-	s.countMu.Unlock()
-
 	st := &Stats{WindowDays: windowDays, RetentionDays: retentionDays, Days: make([]Day, 0, windowDays)}
-	for date, c := range daily {
+	queried, blocked := map[string]int64{}, map[string]int64{}
+
+	s.mu.RLock()
+	for date, c := range s.days {
 		if date < retentionStart || date > today {
 			continue
 		}
-		st.Totals.Total += c.total
-		st.Totals.Blocked += c.blocked
+		st.Totals.Total += c.Total
+		st.Totals.Blocked += c.Blocked
 	}
-	if c := daily[today]; c != nil {
-		st.Today = Totals{Total: c.total, Blocked: c.blocked}
-	}
+	c := s.days[today]
+	st.Today = Totals{Total: c.Total, Blocked: c.Blocked}
 	for i := windowDays - 1; i >= 0; i-- {
 		date := now.AddDate(0, 0, -i).Format(time.DateOnly)
-		d := Day{Date: date}
-		if c := daily[date]; c != nil {
-			d.Total, d.Blocked = c.total, c.blocked
-		}
-		st.Days = append(st.Days, d)
+		c := s.days[date]
+		st.Days = append(st.Days, Day{Date: date, Total: c.Total, Blocked: c.Blocked})
 	}
+	for date, doms := range s.domains {
+		if date < windowFrom || date > today {
+			continue
+		}
+		for dom, c := range doms {
+			queried[dom] += c.Total
+			if c.Blocked > 0 {
+				blocked[dom] += c.Blocked
+			}
+		}
+	}
+	s.mu.RUnlock()
+
 	st.TopQueried = top(queried)
 	st.TopBlocked = top(blocked)
-	return st, nil
-}
-
-func (s *Store) topDomains(ctx context.Context, column, from string) (map[string]int64, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT domain, SUM(`+column+`) AS n FROM daily_domains WHERE date >= ? GROUP BY domain HAVING n > 0 ORDER BY n DESC LIMIT 100`, from)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]int64{}
-	for rows.Next() {
-		var d string
-		var n int64
-		if err := rows.Scan(&d, &n); err != nil {
-			return nil, err
-		}
-		out[d] = n
-	}
-	return out, rows.Err()
+	return st
 }
 
 func top(m map[string]int64) []DomainCount {

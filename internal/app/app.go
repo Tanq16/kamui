@@ -62,15 +62,15 @@ func Run(ctx context.Context, c Config) error {
 	lists := blocklist.NewManager(filepath.Join(c.DataDir, "lists"), listClient)
 	flt := filter.New(lists, cfg)
 	respCache := cache.New(set.CacheSize, set.CacheMinTTL, set.CacheMaxTTL)
-	st, err := store.Open(filepath.Join(c.DataDir, "kamui.db"), set.LogSize, set.RetentionDays, func(msg string, err error) {
+	st, err := store.Open(filepath.Join(c.DataDir, "kamui.snapshot"), set.LogSize, set.RetentionDays, func(msg string, err error) {
 		log.Error().Err(err).Msg(msg)
 	})
 	if err != nil {
-		return fmt.Errorf("open kamui.db: %w", err)
+		return fmt.Errorf("load kamui.snapshot: %w", err)
 	}
 	defer func() {
 		if err := st.Close(); err != nil {
-			log.Warn().Err(err).Msg("failed to close kamui.db")
+			log.Error().Err(err).Msg("failed to save query log snapshot")
 		}
 	}()
 
