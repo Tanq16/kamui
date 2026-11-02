@@ -152,7 +152,7 @@ func (s *Server) resolve(ctx context.Context, q query, depth int, seen map[strin
 
 func (s *Server) forward(ctx context.Context, q query) outcome {
 	question := dns.Question{Name: q.qname, Qtype: q.qtype, Qclass: q.qclass}
-	if m := s.d.Cache.Get(question, q.do()); m != nil {
+	if m := s.d.Cache.Get(question, q.do(), q.cd); m != nil {
 		return outcome{msg: m, cached: true}
 	}
 	resp, host, err := s.d.Upstream.Forward(ctx, q.upstreamMsg())
@@ -160,7 +160,7 @@ func (s *Server) forward(ctx context.Context, q query) outcome {
 		log.Debug().Err(err).Str("domain", q.name).Msg("upstream failed")
 		return outcome{msg: synth(dns.RcodeServerFailure), reason: "upstreams failed"}
 	}
-	s.d.Cache.Set(question, q.do(), resp)
+	s.d.Cache.Set(question, q.do(), q.cd, resp)
 	return outcome{msg: resp, upstream: host}
 }
 

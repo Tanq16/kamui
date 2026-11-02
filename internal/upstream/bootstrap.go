@@ -50,8 +50,8 @@ func (b *Bootstrap) Resolve(ctx context.Context, host string) ([]netip.Addr, err
 		return []netip.Addr{a}, nil
 	}
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	e, ok := b.cache[host]
+	b.mu.Unlock()
 	if ok && time.Now().Before(e.expires) {
 		return e.addrs, nil
 	}
@@ -62,7 +62,9 @@ func (b *Bootstrap) Resolve(ctx context.Context, host string) ([]netip.Addr, err
 		}
 		return nil, err
 	}
+	b.mu.Lock()
 	b.cache[host] = bootEntry{addrs: addrs, expires: time.Now().Add(max(ttl, minBootstrapTTL))}
+	b.mu.Unlock()
 	return addrs, nil
 }
 

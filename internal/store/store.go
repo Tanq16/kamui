@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	saveInterval  = 10 * time.Minute
-	pruneInterval = time.Hour
+	saveInterval     = 10 * time.Minute
+	pruneInterval    = time.Hour
+	domainStatsDays  = 30
+	maxDomainsPerDay = 10_000
 )
 
 type Entry struct {
@@ -123,10 +125,11 @@ func (s *Store) Log(e Entry) {
 		doms = map[string]counts{}
 		s.domains[date] = doms
 	}
-	c := doms[e.Domain]
-	c.Total++
-	c.Blocked += blocked
-	doms[e.Domain] = c
+	if c, ok := doms[e.Domain]; ok || len(doms) < maxDomainsPerDay {
+		c.Total++
+		c.Blocked += blocked
+		doms[e.Domain] = c
+	}
 	s.dirty = true
 }
 
@@ -163,10 +166,17 @@ func (s *Store) ordered() []Entry {
 func (s *Store) prune() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cutoff := windowStart(time.Now(), s.retention)
+	now := time.Now()
+	cutoff := windowStart(now, s.retention)
 	for date := range s.days {
 		if date < cutoff {
 			delete(s.days, date)
+			s.dirty = true
+		}
+	}
+	domainCutoff := windowStart(now, min(s.retention, domainStatsDays))
+	for date := range s.domains {
+		if date < domainCutoff {
 			delete(s.domains, date)
 			s.dirty = true
 		}

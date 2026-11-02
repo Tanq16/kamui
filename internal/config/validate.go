@@ -152,7 +152,7 @@ func (s *Settings) Validate() error {
 		}
 		s.Bootstrap[i] = n
 	}
-	if err := inRange("hedge_delay_ms", s.HedgeDelayMs, 0, 30000); err != nil {
+	if err := inRange("hedge_delay_ms", s.HedgeDelayMs, 50, 30000); err != nil {
 		return err
 	}
 	if err := inRange("timeout_ms", s.TimeoutMs, 100, 60000); err != nil {

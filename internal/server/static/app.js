@@ -36,6 +36,7 @@ const S = {
 };
 
 const LOG_LIMIT = 100;
+const LOG_KEEP = 5 * LOG_LIMIT;
 const REFRESH_PRESETS = [0, 6, 12, 24, 168];
 const SETTINGS_LISTS = ['upstreams', 'bootstrap', 'local_domains', 'rebinding_exempt', 'clients'];
 
@@ -117,6 +118,10 @@ async function pollLog() {
     S.logEnd = false;
   } else {
     S.log = [...fresh, ...S.log];
+  }
+  if (S.log.length > LOG_KEEP) {
+    S.log.length = LOG_KEEP;
+    S.logEnd = false;
   }
   renderLog();
 }
@@ -817,14 +822,14 @@ const actions = {
   'app-tab': (el) => { location.hash = `#/app/${el.dataset.to}`; },
   'block-toggle': () => {
     const enabled = S.status.blocking.mode === 'off';
-    return setBlocking({ enabled }, `Blocking turned ${enabled ? 'on' : 'off'}, cache flushed`);
+    return setBlocking({ enabled }, `Blocking turned ${enabled ? 'on' : 'off'}`);
   },
-  pause: (el) => setBlocking({ pause_seconds: Number(el.dataset.sec) }, 'Blocking paused, cache flushed', 'pause'),
+  pause: (el) => setBlocking({ pause_seconds: Number(el.dataset.sec) }, 'Blocking paused', 'pause'),
   'pause-custom': () => modal(`
     <h2 class="${cls.h2}">Pause blocking</h2>
     ${numInput('', 15, 'minutes', 'name="min" min="1" required')}
-    ${modalButtons('Pause')}`, (f) => setBlocking({ pause_seconds: Number(f.get('min')) * 60 }, 'Blocking paused, cache flushed', 'pause')),
-  resume: () => setBlocking({ enabled: true }, 'Blocking resumed, cache flushed'),
+    ${modalButtons('Pause')}`, (f) => setBlocking({ pause_seconds: Number(f.get('min')) * 60 }, 'Blocking paused', 'pause')),
+  resume: () => setBlocking({ enabled: true }, 'Blocking resumed'),
   'quick-rule': (el) => ruleModal(el.dataset.kind, el.dataset.domain),
   'chart-view': (el) => {
     S.chartView = el.dataset.to;
@@ -1019,7 +1024,7 @@ setInterval(() => {
   expiring = true;
   loaders.status()
     .then(() => {
-      if (S.status.blocking.mode === 'on') toast('Blocking resumed, cache flushed');
+      if (S.status.blocking.mode === 'on') toast('Blocking resumed');
       renderStatus();
     })
     .catch(() => {})

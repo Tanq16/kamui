@@ -202,7 +202,9 @@ func (r *Resolver) Forward(ctx context.Context, m *dns.Msg) (*dns.Msg, string, e
 			launch()
 		case <-hedge.C:
 			launch()
-			hedge.Reset(st.cfg.Hedge)
+			if next < len(ups) {
+				hedge.Reset(st.cfg.Hedge)
+			}
 		case <-ctx.Done():
 			return nil, "", fmt.Errorf("upstreams timed out: %w", ctx.Err())
 		}

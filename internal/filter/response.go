@@ -14,7 +14,7 @@ func internalIP(ip net.IP) bool {
 		return false
 	}
 	a = a.Unmap()
-	return a.IsPrivate() || a.IsLoopback() || a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() || a.IsUnspecified()
+	return a.IsPrivate() || cgnat.Contains(a) || a.IsLoopback() || a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() || a.IsUnspecified()
 }
 
 func pointsInternal(rr dns.RR) bool {

@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io/fs"
 	"mime"
+	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -45,7 +48,9 @@ type Server struct {
 }
 
 func New(ctx context.Context, addr string, d Deps) *Server {
-	return &Server{ctx: ctx, addr: addr, d: d, mux: http.NewServeMux()}
+	s := &Server{ctx: ctx, addr: addr, d: d, mux: http.NewServeMux()}
+	s.srv = &http.Server{Addr: addr, Handler: s.knownHost(s.mux), ReadHeaderTimeout: 10 * time.Second}
+	return s
 }
 
 func (s *Server) Setup() error {
@@ -102,7 +107,6 @@ func (s *Server) Setup() error {
 }
 
 func (s *Server) Run() error {
-	s.srv = &http.Server{Addr: s.addr, Handler: s.mux, ReadHeaderTimeout: 10 * time.Second}
 	log.Info().Str("addr", s.addr).Msg("starting web server")
 	if err := s.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
@@ -111,10 +115,36 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
-	if s.srv == nil {
-		return nil
-	}
 	return s.srv.Shutdown(ctx)
+}
+
+func (s *Server) knownHost(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.allowedHost(r.Host) {
+			writeError(w, http.StatusForbidden, "unknown host")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) allowedHost(hostport string) bool {
+	host, _, err := net.SplitHostPort(hostport)
+	if err != nil {
+		host = strings.TrimSuffix(strings.TrimPrefix(hostport, "["), "]")
+	}
+	host = filter.Normalize(host)
+	if _, err := netip.ParseAddr(host); err == nil {
+		return true
+	}
+	if host == "localhost" {
+		return true
+	}
+	if _, ok := s.d.Filter.Rewrite(host); ok {
+		return true
+	}
+	_, ok := s.d.Filter.LocalDomain(host)
+	return ok
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {

@@ -89,6 +89,13 @@ func (m *Manager) Sync(sources []Source) []Result {
 	for _, src := range sources {
 		keep[src.ID] = true
 		l, ok := m.byID[src.ID]
+		if ok && l.src.Load().URL != src.URL {
+			l.index.Store(nil)
+			l.mu.Lock()
+			l.status, l.attempted = Status{}, time.Time{}
+			l.mu.Unlock()
+			os.Remove(m.path(src.ID))
+		}
 		if !ok {
 			l = &list{}
 			l.src.Store(&src)
