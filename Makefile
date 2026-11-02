@@ -47,12 +47,13 @@ font:
 	  "https://fonts.googleapis.com/css2?family=$(FAMILY):wght@$(WEIGHTS)&display=swap" \
 	  -o "$(CSS_DIR)/$(SLUG).raw"
 	@awk '/^\/\* /{keep = ($$0 ~ /^\/\* latin(-ext)? \*\/$$/)} keep' \
-	  "$(CSS_DIR)/$(SLUG).raw" > "$(CSS_DIR)/$(SLUG).css"
-	@rm -f "$(CSS_DIR)/$(SLUG).raw"
-	@grep -o 'https://fonts.gstatic.com/[^)]*' "$(CSS_DIR)/$(SLUG).css" | sort -u \
-	  | xargs -P 8 -I{} sh -c 'curl -sfL "$$1" -o "$(FONTS_DIR)/$$(basename "$$1")"' _ {}
-	@sed -i.bak -E 's|https://fonts\.gstatic\.com/[^)]*/([^/)]+)|/static/fonts/\1|g' "$(CSS_DIR)/$(SLUG).css"
-	@rm -f "$(CSS_DIR)/$(SLUG).css.bak"
+	  "$(CSS_DIR)/$(SLUG).raw" > "$(CSS_DIR)/$(SLUG).latin"
+# Google Fonts serves some families from /l/font?kit=... URLs, so the file name is generated rather than taken from the URL.
+	@awk -v slug="$(SLUG)" -v urls="$(CSS_DIR)/$(SLUG).urls" \
+	  'match($$0, /https:\/\/fonts\.gstatic\.com\/[^)]*/) { u = substr($$0, RSTART, RLENGTH); if (!(u in f)) { f[u] = slug "-" (++n) ".woff2"; print u, f[u] > urls }; $$0 = substr($$0, 1, RSTART - 1) "/static/fonts/" f[u] substr($$0, RSTART + RLENGTH) } 1' \
+	  "$(CSS_DIR)/$(SLUG).latin" > "$(CSS_DIR)/$(SLUG).css"
+	@xargs -P 8 -n 2 sh -c 'curl -sfL "$$1" -o "$(FONTS_DIR)/$$2"' _ < "$(CSS_DIR)/$(SLUG).urls"
+	@rm -f "$(CSS_DIR)/$(SLUG).raw" "$(CSS_DIR)/$(SLUG).latin" "$(CSS_DIR)/$(SLUG).urls"
 
 verify-assets: ## Fail early if the embedded tree is missing an asset
 	@test -s $(JS_DIR)/tailwind.js || (echo "tailwind.js missing, run 'make assets'" && exit 1)
@@ -79,6 +80,7 @@ build-for: verify-assets ## Build for a specific GOOS/GOARCH
 build-all: assets verify-assets ## Build every platform binary
 	@$(MAKE) build-for GOOS=linux  GOARCH=amd64
 	@$(MAKE) build-for GOOS=linux  GOARCH=arm64
+	@$(MAKE) build-for GOOS=darwin GOARCH=amd64
 	@$(MAKE) build-for GOOS=darwin GOARCH=arm64
 
 docker-build: ## Build the container image for this machine
