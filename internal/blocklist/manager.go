@@ -90,8 +90,9 @@ func (m *Manager) Sync(sources []Source) []Result {
 		keep[src.ID] = true
 		l, ok := m.byID[src.ID]
 		if ok && l.src.Load().URL != src.URL {
-			l.index.Store(nil)
 			l.mu.Lock()
+			l.src.Store(&src)
+			l.index.Store(nil)
 			l.status, l.attempted = Status{}, time.Time{}
 			l.mu.Unlock()
 			os.Remove(m.path(src.ID))
@@ -136,6 +137,9 @@ func (m *Manager) loadFile(l *list) (Result, bool) {
 		l.setStatus(func(s *Status) { s.Error = err.Error() })
 		return r, true
 	}
+	if ix.Len() == 0 {
+		return Result{}, false
+	}
 	l.index.Store(ix)
 	l.setStatus(func(s *Status) { *s = Status{Domains: ix.Len(), Skipped: skipped, Updated: info.ModTime()} })
 	r.Domains, r.Skipped = ix.Len(), skipped
@@ -173,18 +177,26 @@ func (m *Manager) refresh(ctx context.Context, l *list) Result {
 	if err == nil && ix.Len() == 0 {
 		err = errors.New("no domains found in list")
 	}
+	l.mu.Lock()
+	if l.src.Load().URL != src.URL {
+		l.mu.Unlock()
+		r.Err = errors.New("list URL changed during download, result discarded")
+		return r
+	}
 	if err != nil {
+		l.status.Error = err.Error()
+		l.mu.Unlock()
 		r.Err = err
-		l.setStatus(func(s *Status) { s.Error = err.Error() })
 		return r
 	}
 	l.index.Store(ix)
+	l.status = Status{Domains: ix.Len(), Skipped: r.Skipped, Updated: time.Now()}
+	l.mu.Unlock()
 	r.Domains = ix.Len()
-	l.setStatus(func(s *Status) { *s = Status{Domains: ix.Len(), Skipped: r.Skipped, Updated: time.Now()} })
 	if err := writeAtomic(m.path(src.ID), data); err != nil {
 		r.Err = fmt.Errorf("list indexed but not saved: %w", err)
 	}
-	if m.get(src.ID) != l {
+	if m.get(src.ID) != l || l.src.Load().URL != src.URL {
 		os.Remove(m.path(src.ID))
 	}
 	return r
@@ -244,6 +256,10 @@ func writeAtomic(path string, data []byte) error {
 	}
 	defer os.Remove(tmp.Name())
 	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		return err
 	}

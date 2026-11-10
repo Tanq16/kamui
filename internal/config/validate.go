@@ -84,6 +84,9 @@ func ValidateUpstream(s string) error {
 		hostport := strings.TrimPrefix(s, "tls://")
 		host, port := hostport, ""
 		if h, p, err := net.SplitHostPort(hostport); err == nil {
+			if p == "" {
+				return fmt.Errorf("invalid DoT upstream %q, expected tls://host[:port]", s)
+			}
 			host, port = h, p
 		}
 		if host == "" || strings.ContainsAny(host, "/?#@") {
@@ -199,6 +202,9 @@ func (s *Settings) Validate() error {
 		return err
 	}
 	if err := inRange("log_size", s.LogSize, 1000, 1000000); err != nil {
+		return err
+	}
+	if err := inRange("snapshot_minutes", s.SnapshotMinutes, 0, 1440); err != nil {
 		return err
 	}
 	if err := inRange("retention_days", s.RetentionDays, 1, 3650); err != nil {

@@ -41,6 +41,7 @@ type Settings struct {
 	RelayCanary     bool     `json:"relay_canary"`
 	RefreshHours    int      `json:"refresh_hours"`
 	LogSize         int      `json:"log_size"`
+	SnapshotMinutes int      `json:"snapshot_minutes"`
 	RetentionDays   int      `json:"retention_days"`
 	StatsWindowDays int      `json:"stats_window_days"`
 	Clients         []Client `json:"clients"`
@@ -95,6 +96,7 @@ func Default() *Config {
 			RelayCanary:     true,
 			RefreshHours:    24,
 			LogSize:         100000,
+			SnapshotMinutes: 10,
 			RetentionDays:   30,
 			StatsWindowDays: 7,
 			Clients:         []Client{},

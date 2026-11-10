@@ -8,13 +8,13 @@ import (
 	"io"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"time"
 )
 
 const (
-	saveInterval     = 10 * time.Minute
 	pruneInterval    = time.Hour
 	domainStatsDays  = 30
 	maxDomainsPerDay = 10_000
@@ -48,48 +48,66 @@ type snapshot struct {
 }
 
 type Store struct {
-	path  string
-	quit  chan struct{}
-	done  chan struct{}
-	onErr func(msg string, err error)
+	path   string
+	quit   chan struct{}
+	done   chan struct{}
+	retime chan time.Duration
+	onErr  func(msg string, err error)
 
 	mu        sync.RWMutex
 	buf       []Entry
 	head      int
 	size      int
 	retention int
+	saveEvery time.Duration
 	nextID    int64
 	days      map[string]counts
 	domains   map[string]map[string]counts
 	dirty     bool
 }
 
-func Open(path string, logSize, retentionDays int, onErr func(msg string, err error)) (*Store, error) {
+func Open(path string, logSize, retentionDays int, saveEvery time.Duration, onErr func(msg string, err error)) *Store {
 	snap, err := readSnapshot(path)
 	if err != nil {
-		return nil, err
+		bad := path + ".bad"
+		msg := "unreadable query log snapshot moved to " + filepath.Base(bad) + ", starting empty"
+		if rerr := os.Rename(path, bad); rerr != nil {
+			msg, err = "unreadable query log snapshot, starting empty", errors.Join(err, rerr)
+		}
+		onErr(msg, err)
+		snap = emptySnapshot()
 	}
 	s := &Store{
 		path:      path,
 		quit:      make(chan struct{}),
 		done:      make(chan struct{}),
+		retime:    make(chan time.Duration, 1),
 		onErr:     onErr,
 		buf:       slices.Clone(snap.Log[max(len(snap.Log)-logSize, 0):]),
 		size:      logSize,
 		retention: retentionDays,
+		saveEvery: saveEvery,
 		nextID:    max(snap.NextID, 1),
 		days:      snap.Days,
 		domains:   snap.Domains,
 	}
 	s.prune()
-	go s.run()
-	return s, nil
+	go s.run(saveEvery)
+	return s
 }
 
-func (s *Store) SetLimits(logSize, retentionDays int) {
+func (s *Store) SetLimits(logSize, retentionDays int, saveEvery time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.retention = retentionDays
+	if saveEvery != s.saveEvery {
+		s.saveEvery = saveEvery
+		select {
+		case <-s.retime:
+		default:
+		}
+		s.retime <- saveEvery
+	}
 	if logSize == s.size {
 		return
 	}
@@ -139,13 +157,24 @@ func (s *Store) Close() error {
 	return s.save()
 }
 
-func (s *Store) run() {
+func (s *Store) run(saveEvery time.Duration) {
 	defer close(s.done)
-	save := time.Tick(saveInterval)
+	save := time.NewTicker(time.Minute)
+	defer save.Stop()
+	setSave := func(d time.Duration) {
+		if d > 0 {
+			save.Reset(d)
+		} else {
+			save.Stop()
+		}
+	}
+	setSave(saveEvery)
 	prune := time.Tick(pruneInterval)
 	for {
 		select {
-		case <-save:
+		case d := <-s.retime:
+			setSave(d)
+		case <-save.C:
 			if err := s.save(); err != nil {
 				s.onErr("failed to save query log snapshot", err)
 			}
@@ -205,8 +234,12 @@ func (s *Store) save() error {
 	return nil
 }
 
+func emptySnapshot() *snapshot {
+	return &snapshot{Days: map[string]counts{}, Domains: map[string]map[string]counts{}}
+}
+
 func readSnapshot(path string) (*snapshot, error) {
-	snap := &snapshot{Days: map[string]counts{}, Domains: map[string]map[string]counts{}}
+	snap := emptySnapshot()
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return snap, nil

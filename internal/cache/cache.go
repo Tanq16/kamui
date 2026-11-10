@@ -9,6 +9,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+const maxEntryBytes = 4 << 10
+
 type key struct {
 	name  string
 	qtype uint16
@@ -126,8 +128,9 @@ func (c *Cache) Set(q dns.Question, do, cd bool, m *dns.Msg) {
 			}
 		}
 	}
+	cp.Compress = true
 	packed, err := cp.Pack()
-	if err != nil {
+	if err != nil || len(packed) > maxEntryBytes {
 		return
 	}
 

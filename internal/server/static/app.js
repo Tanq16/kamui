@@ -32,12 +32,11 @@ const S = {
   chartView: 'chart',
   tipDay: null,
   test: null,
-  refreshCustom: false,
+  customPreset: {},
 };
 
 const LOG_LIMIT = 100;
 const LOG_KEEP = 5 * LOG_LIMIT;
-const REFRESH_PRESETS = [0, 6, 12, 24, 168];
 const SETTINGS_LISTS = ['upstreams', 'bootstrap', 'local_domains', 'rebinding_exempt', 'clients'];
 
 async function api(method, path, body) {
@@ -183,6 +182,12 @@ const field = (label, hint, control) => `<div class="flex flex-wrap items-center
 const numInput = (key, value, unit, attrs = '') => `<label class="flex items-center h-10 rounded-full bg-surface0 pr-4 focus-within:ring-2 focus-within:ring-mauve/40">
   <input type="number" data-bind="${key}" value="${value}" ${attrs} class="w-24 bg-transparent pl-4 pr-2 text-right text-sm text-text tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none pointer-coarse:text-[16px]">
   <span class="${cls.hint}">${unit}</span></label>`;
+
+const presetPicker = (key, presets, unit, attrs) => {
+  const v = S.settings[key];
+  const custom = S.customPreset[key] || !presets.some(([k]) => k === v);
+  return `<div data-key="${key}" class="flex flex-wrap items-center gap-3">${pillBar([...presets, ['custom', 'Custom']], custom ? 'custom' : v, 'set-preset', 'bg-base')}${custom ? numInput(key, v, unit, attrs) : ''}</div>`;
+};
 
 const pageHead = (title, sub, right = '') => `<div class="flex flex-wrap items-end justify-between gap-4 mb-6"><div><h1 class="font-display text-2xl text-text">${title}</h1>${sub ? `<p class="text-sm mt-1">${sub}</p>` : ''}</div>${right}</div>`;
 
@@ -667,12 +672,11 @@ function viewDNS(sub) {
 
 function viewApp(sub) {
   const s = S.settings;
-  const refreshOpts = [[0, 'Off'], [6, '6 h'], [12, '12 h'], [24, '24 h'], [168, '7 d'], ['custom', 'Custom']];
-  const custom = S.refreshCustom || !REFRESH_PRESETS.includes(s?.refresh_hours);
   const body = {
     general: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-      ${settingCard('Block list refresh', 'How often every list is downloaded again.', `<div class="flex flex-wrap items-center gap-3">${pillBar(refreshOpts, custom ? 'custom' : s.refresh_hours, 'set-refresh', 'bg-base')}${custom ? numInput('refresh_hours', s.refresh_hours, 'hours', 'min="1"') : ''}</div>`)}
+      ${settingCard('Block list refresh', 'How often every list is downloaded again.', presetPicker('refresh_hours', [[0, 'Off'], [6, '6 h'], [12, '12 h'], [24, '24 h'], [168, '7 d']], 'hours', 'min="1"'))}
       ${settingCard('Query log size', 'The oldest queries are dropped past this many rows.', numInput('log_size', s.log_size, 'rows', 'min="1000" max="1000000" step="1000"'))}
+      ${settingCard('Snapshot', 'How often the query log and statistics are saved to disk.', presetPicker('snapshot_minutes', [[0, 'Shutdown only'], [5, '5 min'], [10, '10 min'], [30, '30 min'], [60, '1 h']], 'minutes', 'min="0" max="1440"'))}
     </div>`,
     stats: () => `<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       ${settingCard('Retention', 'Statistics older than this are deleted.', numInput('retention_days', s.retention_days, 'days', 'min="1"'))}
@@ -910,9 +914,10 @@ const actions = {
     toast('Cache flushed', 'eraser');
   },
   flip: (el) => saveSettings((s) => { s[el.dataset.key] = !s[el.dataset.key]; }),
-  'set-refresh': (el) => {
-    S.refreshCustom = el.dataset.to === 'custom';
-    if (!S.refreshCustom) return saveSettings((s) => { s.refresh_hours = Number(el.dataset.to); });
+  'set-preset': (el) => {
+    const key = el.closest('[data-key]').dataset.key;
+    S.customPreset[key] = el.dataset.to === 'custom';
+    if (!S.customPreset[key]) return saveSettings((s) => { s[key] = Number(el.dataset.to); });
   },
   'set-window': (el) => saveSettings((s) => { s.stats_window_days = Number(el.dataset.to); }),
   'client-remove': (el) => saveSettings((s) => { s.clients.splice(Number(el.dataset.i), 1); }),

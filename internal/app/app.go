@@ -37,6 +37,10 @@ func upstreamConfig(s config.Settings) upstream.Config {
 	}
 }
 
+func snapshotEvery(s config.Settings) time.Duration {
+	return time.Duration(s.SnapshotMinutes) * time.Minute
+}
+
 func Run(ctx context.Context, c Config) error {
 	if err := os.MkdirAll(filepath.Join(c.DataDir, "lists"), 0o700); err != nil {
 		return fmt.Errorf("create data directory %s: %w", c.DataDir, err)
@@ -62,12 +66,9 @@ func Run(ctx context.Context, c Config) error {
 	lists := blocklist.NewManager(filepath.Join(c.DataDir, "lists"), listClient)
 	flt := filter.New(lists, cfg)
 	respCache := cache.New(set.CacheSize, set.CacheMinTTL, set.CacheMaxTTL)
-	st, err := store.Open(filepath.Join(c.DataDir, "kamui.snapshot"), set.LogSize, set.RetentionDays, func(msg string, err error) {
+	st := store.Open(filepath.Join(c.DataDir, "kamui.snapshot"), set.LogSize, set.RetentionDays, snapshotEvery(set), func(msg string, err error) {
 		log.Error().Err(err).Msg(msg)
 	})
-	if err != nil {
-		return fmt.Errorf("load kamui.snapshot: %w", err)
-	}
 	defer func() {
 		if err := st.Close(); err != nil {
 			log.Error().Err(err).Msg("failed to save query log snapshot")
@@ -94,7 +95,7 @@ func Run(ctx context.Context, c Config) error {
 			log.Error().Err(err).Msg("failed to apply upstream settings")
 		}
 		respCache.SetLimits(cur.Settings.CacheSize, cur.Settings.CacheMinTTL, cur.Settings.CacheMaxTTL)
-		st.SetLimits(cur.Settings.LogSize, cur.Settings.RetentionDays)
+		st.SetLimits(cur.Settings.LogSize, cur.Settings.RetentionDays, snapshotEvery(cur.Settings))
 		web.SyncLists(cur.Lists)
 		if old.Blocking != cur.Blocking {
 			log.Info().Str("mode", cur.Blocking.Mode).Msg("blocking state changed")
