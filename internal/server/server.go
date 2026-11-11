@@ -120,6 +120,8 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) knownHost(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 		if !s.allowedHost(r.Host) {
 			writeError(w, http.StatusForbidden, "unknown host")
 			return
