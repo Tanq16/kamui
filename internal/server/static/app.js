@@ -162,11 +162,11 @@ function hostOf(u) {
   }
 }
 
-const toggle = (on, attrs) => `<button role="switch" aria-checked="${on}" ${attrs} class="group relative inline-flex h-6 w-10 shrink-0 rounded-full bg-surface1 aria-checked:bg-green cursor-pointer transition"><span class="absolute top-1 left-1 size-4 rounded-full bg-text group-aria-checked:translate-x-4 group-aria-checked:bg-crust transition"></span></button>`;
+const toggle = (on, attrs) => `<button role="switch" aria-checked="${on}" ${attrs} class="group relative inline-flex h-6 w-10 shrink-0 rounded-full bg-surface0 aria-checked:bg-green cursor-pointer transition"><span class="absolute top-1 left-1 size-4 rounded-full bg-text group-aria-checked:translate-x-4 group-aria-checked:bg-crust transition"></span></button>`;
 
 const checkbox = (name, checked, label) => `<label class="group inline-flex items-center gap-2 text-sm cursor-pointer select-none">
   <input type="checkbox" name="${name}" ${checked ? 'checked' : ''} class="sr-only">
-  <span class="grid place-items-center size-5 rounded-md bg-surface1 text-crust group-has-checked:bg-mauve group-has-focus-visible:ring-2 group-has-focus-visible:ring-mauve/40 transition">${icon('check', 'size-3.5 opacity-0 group-has-checked:opacity-100')}</span>${label}</label>`;
+  <span class="grid place-items-center size-5 rounded-md bg-surface0 text-crust group-has-checked:bg-mauve group-has-focus-visible:ring-2 group-has-focus-visible:ring-mauve/40 transition">${icon('check', 'size-3.5 opacity-0 group-has-checked:opacity-100')}</span>${label}</label>`;
 
 const pills = (items, active, action, size = 'h-8') => items.map(([k, label, ic]) => {
   const on = String(k) === String(active);

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/Tanq16/kamui/internal/blocklist"
 	"github.com/Tanq16/kamui/internal/cache"
@@ -109,24 +110,29 @@ func Run(ctx context.Context, c Config) error {
 		Upstream: up,
 		Store:    st,
 	})
-	if err := dnsSrv.Start(); err != nil {
+	if err := dnsSrv.Listen(); err != nil {
 		return fmt.Errorf("bind DNS listener on %s: %w", c.DNSAddr, err)
 	}
 	log.Info().Str("addr", c.DNSAddr).Msg("DNS server listening on UDP and TCP")
 
-	webErr := make(chan error, 1)
-	go func() { webErr <- web.Run() }()
+	g, gctx := errgroup.WithContext(ctx)
+	for _, serve := range []func() error{dnsSrv.ServeUDP, dnsSrv.ServeTCP} {
+		g.Go(func() error {
+			if err := serve(); err != nil {
+				return fmt.Errorf("DNS listener on %s: %w", c.DNSAddr, err)
+			}
+			return nil
+		})
+	}
+	g.Go(func() error {
+		if err := web.Run(); err != nil {
+			return fmt.Errorf("web server on %s: %w", c.HTTPAddr, err)
+		}
+		return nil
+	})
 	go web.RunListRefresh()
 
-	var runErr error
-	select {
-	case <-ctx.Done():
-	case err := <-webErr:
-		if err != nil {
-			runErr = fmt.Errorf("web server on %s: %w", c.HTTPAddr, err)
-		}
-	}
-
+	<-gctx.Done()
 	log.Info().Msg("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -136,5 +142,5 @@ func Run(ctx context.Context, c Config) error {
 	if err := web.Shutdown(shutdownCtx); err != nil {
 		log.Warn().Err(err).Msg("web shutdown incomplete")
 	}
-	return runErr
+	return g.Wait()
 }

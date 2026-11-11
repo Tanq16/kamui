@@ -8,8 +8,8 @@ VERSION ?= dev-build
 GOOS    ?= $(shell go env GOOS)
 GOARCH  ?= $(shell go env GOARCH)
 
-TAILWIND_VERSION := 4.3.3
-LUCIDE_VERSION   := 1.34.0
+TAILWIND_VERSION := 4.3.5
+LUCIDE_VERSION   := 1.72.0
 
 STATIC_DIR := internal/server/static
 JS_DIR     := $(STATIC_DIR)/js

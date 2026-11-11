@@ -26,17 +26,18 @@ type Deps struct {
 }
 
 type Server struct {
-	addr string
-	d    Deps
-	udp  *dns.Server
-	tcp  *dns.Server
+	addr    string
+	d       Deps
+	udp     *dns.Server
+	tcp     *dns.Server
+	stopped chan struct{}
 }
 
 func New(addr string, d Deps) *Server {
-	return &Server{addr: addr, d: d}
+	return &Server{addr: addr, d: d, stopped: make(chan struct{})}
 }
 
-func (s *Server) Start() error {
+func (s *Server) Listen() error {
 	pc, err := net.ListenPacket("udp", s.addr)
 	if err != nil {
 		return err
@@ -48,17 +49,31 @@ func (s *Server) Start() error {
 	}
 	s.udp = &dns.Server{PacketConn: pc, Handler: s, UDPSize: dns.DefaultMsgSize}
 	s.tcp = &dns.Server{Listener: ln, Handler: s}
-	for _, srv := range []*dns.Server{s.udp, s.tcp} {
-		go func() {
-			if err := srv.ActivateAndServe(); err != nil {
-				log.Error().Err(err).Msg("DNS listener stopped")
-			}
-		}()
-	}
 	return nil
 }
 
+func (s *Server) ServeUDP() error {
+	return s.serve(s.udp)
+}
+
+func (s *Server) ServeTCP() error {
+	return s.serve(s.tcp)
+}
+
+func (s *Server) serve(srv *dns.Server) error {
+	done := make(chan error, 1)
+	// Calling ActivateAndServe inline blocks exit while a handler outlives Shutdown, and forever when Shutdown ran first.
+	go func() { done <- srv.ActivateAndServe() }()
+	select {
+	case err := <-done:
+		return err
+	case <-s.stopped:
+		return nil
+	}
+}
+
 func (s *Server) Shutdown(ctx context.Context) error {
+	defer close(s.stopped)
 	return errors.Join(s.udp.ShutdownContext(ctx), s.tcp.ShutdownContext(ctx))
 }
 
