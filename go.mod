@@ -7,6 +7,7 @@ require (
 	github.com/miekg/dns v1.1.73
 	github.com/rs/zerolog v1.35.1
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/sync v0.25.0
 )
 
 require (
@@ -15,6 +16,5 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 )
