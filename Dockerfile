@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN make assets && \
       -o /app/kamui . && \
     setcap cap_net_bind_service=+ep /app/kamui
 
-FROM alpine:3.24.3
+FROM alpine:3.24.4
 
 WORKDIR /app
 COPY --from=builder --chown=10001:10001 /app/kamui .
