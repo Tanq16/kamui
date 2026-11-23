@@ -1,19 +1,15 @@
 <!DOCTYPE html>
-<html lang="en" class="[color-scheme:dark]">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>kamui</title>
 
-    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon.png">
-    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/logo.svg">
 
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#11111b">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="kamui">
 
     <link rel="stylesheet" href="/static/css/inter.css">
@@ -23,7 +19,8 @@
     <script src="/static/js/lucide.min.js"></script>
     <script src="/static/js/tailwind.js"></script>
     <style>
-      :root {
+      :root, .dark {
+        color-scheme: dark;
         --ctp-rosewater: #f5e0dc; --ctp-flamingo: #f2cdcd; --ctp-pink: #f5c2e7;
         --ctp-mauve: #cba6f7;     --ctp-red: #f38ba8;      --ctp-maroon: #eba0ac;
         --ctp-peach: #fab387;     --ctp-yellow: #f9e2af;   --ctp-green: #a6e3a1;
@@ -32,15 +29,23 @@
         --ctp-subtext1: #bac2de;  --ctp-subtext0: #a6adc8; --ctp-overlay2: #9399b2;
         --ctp-overlay1: #7f849c;  --ctp-overlay0: #6c7086; --ctp-surface2: #585b70;
         --ctp-surface1: #45475a;  --ctp-surface0: #313244; --ctp-base: #1e1e2e;
-        --ctp-mantle: #181825;    --ctp-crust: #11111b;
-        --chart-allowed: #6b94d8; --chart-blocked: #d46f8c;
+        --ctp-mantle: #181825;    --ctp-crust: #11111b;    --ctp-shade: #11111b;
       }
-      ::selection { background: color-mix(in oklab, var(--ctp-mauve) 35%, transparent); }
-      ::-webkit-scrollbar { width: 10px; height: 10px; }
-      ::-webkit-scrollbar-thumb { background: var(--ctp-surface0); border-radius: 999px; }
+      * { scrollbar-width: none; }
+      *::-webkit-scrollbar { display: none; }
+      ::selection { background: color-mix(in oklab, var(--ctp-mauve) 35%, transparent); color: var(--ctp-text); }
+      input[type=number] { appearance: textfield; }
+      input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      input:-webkit-autofill { -webkit-text-fill-color: var(--ctp-text); box-shadow: 0 0 0 100px var(--ctp-surface0) inset; caret-color: var(--ctp-text); }
+
+      @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+      @keyframes sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+      @keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
     </style>
     <style type="text/tailwindcss">
-      @theme {
+      @theme inline {
         --color-rosewater: var(--ctp-rosewater); --color-flamingo: var(--ctp-flamingo);
         --color-pink: var(--ctp-pink);           --color-mauve: var(--ctp-mauve);
         --color-red: var(--ctp-red);             --color-maroon: var(--ctp-maroon);
@@ -54,29 +59,35 @@
         --color-surface2: var(--ctp-surface2);   --color-surface1: var(--ctp-surface1);
         --color-surface0: var(--ctp-surface0);   --color-base: var(--ctp-base);
         --color-mantle: var(--ctp-mantle);       --color-crust: var(--ctp-crust);
-        --color-allowed: var(--chart-allowed);   --color-blocked: var(--chart-blocked);
-
+        --color-shade: var(--ctp-shade);
+      }
+      @theme {
         --font-sans: 'Inter', sans-serif;
         --font-display: 'Google Sans', sans-serif;
         --font-mono: 'JetBrains Mono', monospace;
+        --font-mono--font-feature-settings: "calt" 0;
+        --breakpoint-3xl: 120rem;
+      }
+      @layer base {
+        button:not(:disabled), [role="button"], [role="option"], a[href], summary { cursor: pointer; }
       }
     </style>
 </head>
-<body class="bg-crust text-subtext0 min-h-screen font-sans antialiased">
-    <header class="px-4 sm:px-6 lg:px-10 pt-6 flex flex-wrap items-center gap-3">
-        <a href="#/dashboard" aria-label="kamui" class="flex items-center gap-2.5 text-text font-display text-xl font-medium cursor-pointer">
-            <img src="/static/icons/icon.svg" alt="" class="size-11 sm:size-13">
+<body class="bg-crust text-subtext0 h-dvh overflow-hidden flex flex-col font-sans antialiased">
+    <header class="shrink-0 flex flex-wrap items-center gap-3 px-4 pt-4 sm:flex-nowrap sm:px-6 lg:px-10 lg:pt-6">
+        <a href="#/" aria-label="kamui" class="flex items-center gap-2.5 font-display text-xl font-medium text-text">
+            <img src="/static/icons/logo.svg" alt="" class="size-11 sm:size-13">
             <span class="max-sm:hidden">Kamui</span>
         </a>
         <span id="state-tag"></span>
-        <nav id="nav" class="ml-auto flex gap-1 p-1 bg-mantle rounded-full"></nav>
+        <nav id="nav" class="flex gap-1 rounded-full bg-mantle p-1 max-sm:order-last max-sm:w-full sm:ml-auto"></nav>
     </header>
 
-    <main id="view" class="px-4 sm:px-6 lg:px-10 py-6 sm:py-8"></main>
+    <main id="view" class="flex-1 min-h-0 px-4 py-4 sm:px-6 lg:px-10 lg:py-6"></main>
 
-    <dialog id="modal" class="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl bg-mantle text-subtext0 p-6 backdrop:bg-crust/70"></dialog>
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 max-w-[calc(100%-2rem)] px-4 py-2 rounded-full bg-surface0 text-text text-sm shadow-lg transition-all opacity-0 translate-y-4 pointer-events-none"></div>
+    <div id="layer-root"></div>
 
+    <script src="/static/ui.js"></script>
     <script src="/static/app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
